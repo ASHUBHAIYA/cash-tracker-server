@@ -1,18 +1,13 @@
 import os
 import json
-import sqlite3
 import functools
 from datetime import date, timedelta
 
 from flask import Flask, request, jsonify, session, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "tracker.db")
+import libsql_client
 
 app = Flask(__name__)
-# IMPORTANT: change this to a random string before real use.
-# You can also set it via: export TRACKER_SECRET="something-random"
 app.secret_key = os.environ.get("TRACKER_SECRET", "please-change-this-secret-key")
 app.permanent_session_lifetime = timedelta(days=30)
 
@@ -22,29 +17,82 @@ COMPANY = {
     "gstin": "23AEPFS7841N1Z9",
 }
 
-# ---------------------------------------------------------------------------
-# Design notes (also in README):
-#
-# - A sale "bill" lives in `entries` (kind='sale'). Money received against it
-#   lives in `payments`, one row per payment, so partial/overpaid/multiple
-#   payments over time are all supported. A bill's status (pending / partial
-#   / paid) is always derived by summing its payments, never stored directly.
-# - `advances` holds money a client pays before any bill exists. A payment
-#   can later be made with method='advance', which draws down that client's
-#   advance balance instead of being new cash/bank inflow (so it is never
-#   double-counted as income).
-# - `client_adjustments` holds non-cash adjustments against a client's total
-#   outstanding balance (discount, round off, bad debt, TDS, or anything
-#   custom) -- these reduce what a client owes without any money moving.
-# - Loading/unloading: optionally recorded alongside a payment. When present,
-#   it both (a) is stored on the payment row for traceability, and (b)
-#   automatically creates a linked expense entry, so it shows up in the
-#   expense side of the books too. entries.linked_sale_id points back to the
-#   sale it came from.
-# - `entries.extra_json` exists purely so that restoring an older backup (or
-#   a future one with fields this version doesn't know about) never silently
-#   drops data -- anything unrecognized is preserved there instead of lost.
-# ---------------------------------------------------------------------------
+# --- Turso Cloud Database Configuration ---
+TURSO_DB_URL = os.environ.get(
+    "TURSO_DATABASE_URL",
+    "https://cash-tracker-ashubhaiya.aws-ap-south-1.turso.io"
+)
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
+
+
+class RowWrapper:
+    """Provides sqlite3.Row-like access (both row['key'] and row.get('key'))"""
+    def __init__(self, d):
+        self._d = d
+
+    def __getitem__(self, key):
+        return self._d[key]
+
+    def get(self, key, default=None):
+        return self._d.get(key, default)
+
+    def keys(self):
+        return self._d.keys()
+
+    def values(self):
+        return self._d.values()
+
+    def items(self):
+        return self._d.items()
+
+    def __iter__(self):
+        return iter(self._d)
+
+    def __repr__(self):
+        return repr(self._d)
+
+
+class CursorResult:
+    def __init__(self, last_insert_rowid=None, rows=None):
+        self.lastrowid = last_insert_rowid
+        self._rows = rows or []
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return self._rows
+
+
+class TursoDBWrapper:
+    """Emulates a sqlite3 connection for libSQL client"""
+    def __init__(self, client):
+        self.client = client
+
+    def execute(self, sql, params=None):
+        params = list(params) if params is not None else []
+        res = self.client.execute(sql, params)
+        columns = res.columns
+        rows = [RowWrapper(dict(zip(columns, row))) for row in res.rows]
+        return CursorResult(res.last_insert_rowid, rows)
+
+    def commit(self):
+        pass  # Turso auto-commits individual queries
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        self.client.close()
+
+
+def get_db():
+    client = libsql_client.create_client_sync(
+        url=TURSO_DB_URL,
+        auth_token=TURSO_AUTH_TOKEN
+    )
+    return TursoDBWrapper(client)
+
 
 KNOWN_ENTRY_FIELDS = {
     "date", "kind", "client", "item_type", "itemType", "qty", "rate",
@@ -54,15 +102,7 @@ KNOWN_ENTRY_FIELDS = {
 }
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
 def init_db():
-    first_time = not os.path.exists(DB_PATH)
     conn = get_db()
     conn.execute(
         """CREATE TABLE IF NOT EXISTS users(
@@ -132,7 +172,7 @@ def init_db():
         )"""
     )
 
-    # --- migrations for databases created by earlier versions ---
+    # --- column check for entries table ---
     existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(entries)").fetchall()}
     for col, coltype in (
         ("item_type", "TEXT"), ("qty", "REAL"), ("rate", "REAL"),
@@ -140,24 +180,14 @@ def init_db():
         ("extra_json", "TEXT"),
     ):
         if col not in existing_cols:
-            conn.execute(f"ALTER TABLE entries ADD COLUMN {col} {coltype}")
+            try:
+                conn.execute(f"ALTER TABLE entries ADD COLUMN {col} {coltype}")
+            except Exception:
+                pass
 
-    # Backfill: any sale marked received=1 under the old single-flag model
-    # but with no payment row yet gets one synthesized, so the new
-    # payments-based status calculation sees it correctly.
-    old_paid_sales = conn.execute(
-        """SELECT e.* FROM entries e
-           WHERE e.kind='sale' AND e.received=1
-           AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.entry_id = e.id)"""
-    ).fetchall()
-    for e in old_paid_sales:
-        conn.execute(
-            """INSERT INTO payments(entry_id, date, method, amount, created_by)
-               VALUES (?,?,?,?,?)""",
-            (e["id"], e["received_date"] or e["date"], e["method"] or "cash", e["amount"], e["created_by"] or "migration"),
-        )
-
-    if first_time:
+    # Create default users if users table is empty
+    user_count = conn.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
+    if user_count == 0:
         conn.execute(
             "INSERT INTO users VALUES (?,?,?,?)",
             ("admin", generate_password_hash("12346"), "admin", "Admin"),
@@ -166,9 +196,8 @@ def init_db():
             "INSERT INTO users VALUES (?,?,?,?)",
             ("user", generate_password_hash("1234"), "operator", "Data Entry Operator"),
         )
-        print("First run: created default users admin/12346 and user/1234.")
-        print("Please change these passwords (see README) before real use.")
-    conn.commit()
+        print("First run: created default users admin/12346 and user/1234 on Turso.")
+
     conn.close()
 
 
@@ -195,9 +224,6 @@ def is_admin():
 
 
 def check_date_window(entry_date, earliest_allowed=None):
-    """Admins may use any date. Operators are limited to yesterday..today,
-    and (when earliest_allowed is given, e.g. a bill's own date) never
-    earlier than that either. Returns an error string, or None if OK."""
     if is_admin():
         return None
     today = date.today().isoformat()
@@ -315,11 +341,11 @@ def list_adjustment_types():
 def list_clients():
     conn = get_db()
     names = set()
-    for row in conn.execute("SELECT DISTINCT client FROM entries WHERE client IS NOT NULL AND client != ''"):
+    for row in conn.execute("SELECT DISTINCT client FROM entries WHERE client IS NOT NULL AND client != ''").fetchall():
         names.add(row["client"])
-    for row in conn.execute("SELECT DISTINCT client FROM advances"):
+    for row in conn.execute("SELECT DISTINCT client FROM advances").fetchall():
         names.add(row["client"])
-    for row in conn.execute("SELECT DISTINCT client FROM client_adjustments"):
+    for row in conn.execute("SELECT DISTINCT client FROM client_adjustments").fetchall():
         names.add(row["client"])
     conn.close()
     return jsonify(sorted(names))
@@ -407,31 +433,29 @@ def add_entry():
             session["username"],
         )
         if pay_err:
-            conn.rollback()
             conn.close()
             return jsonify({"error": pay_err}), 400
 
-    conn.commit()
     conn.close()
     return jsonify({"id": new_id, "amount": amount, "paymentId": payment_id})
 
 
 def _client_advance_balance(conn, client):
-    received = conn.execute(
+    row = conn.execute(
         "SELECT COALESCE(SUM(amount),0) s FROM advances WHERE client=?", (client,)
-    ).fetchone()["s"]
-    used = conn.execute(
+    ).fetchone()
+    received = row["s"] if row else 0
+    row_used = conn.execute(
         """SELECT COALESCE(SUM(p.amount),0) s FROM payments p
            JOIN entries e ON e.id = p.entry_id
            WHERE e.client=? AND p.method='advance'""",
         (client,),
-    ).fetchone()["s"]
+    ).fetchone()
+    used = row_used["s"] if row_used else 0
     return received - used
 
 
 def _record_payment(conn, entry_id, pay_date, method, amount, loading_amt, loading_method, username):
-    """Inserts a payment (and, if requested, a linked loading/unloading
-    expense) for a sale entry. Returns (error_or_None, payment_id_or_None)."""
     entry = conn.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()
     if not entry or entry["kind"] != "sale":
         return "sale not found", None
@@ -501,11 +525,9 @@ def pay_entry(eid):
         session["username"],
     )
     if pay_err:
-        conn.rollback()
         conn.close()
         return jsonify({"error": pay_err}), 400
 
-    conn.commit()
     conn.close()
     return jsonify({"ok": True, "paymentId": payment_id})
 
@@ -531,7 +553,6 @@ def delete_payment(pid):
     if row["loading_unloading_expense_id"]:
         conn.execute("DELETE FROM entries WHERE id=?", (row["loading_unloading_expense_id"],))
     conn.execute("DELETE FROM payments WHERE id=?", (pid,))
-    conn.commit()
     conn.close()
     return jsonify({"ok": True})
 
@@ -541,15 +562,12 @@ def delete_payment(pid):
 @admin_required
 def delete_entry(eid):
     conn = get_db()
-    # Cascade: remove any loading/unloading expenses this sale generated,
-    # and any payments recorded against it, then the entry itself.
     linked = conn.execute("SELECT id FROM entries WHERE linked_sale_id=?", (eid,)).fetchall()
     for row in linked:
         conn.execute("DELETE FROM payments WHERE loading_unloading_expense_id=?", (row["id"],))
         conn.execute("DELETE FROM entries WHERE id=?", (row["id"],))
     conn.execute("DELETE FROM payments WHERE entry_id=?", (eid,))
     conn.execute("DELETE FROM entries WHERE id=?", (eid,))
-    conn.commit()
     conn.close()
     return jsonify({"ok": True})
 
@@ -591,7 +609,6 @@ def add_advance():
         "INSERT INTO advances(date, client, amount, method, note, created_by) VALUES (?,?,?,?,?,?)",
         (adv_date, d.get("client").strip(), amount, d.get("method"), d.get("note", ""), session["username"]),
     )
-    conn.commit()
     new_id = cur.lastrowid
     conn.close()
     return jsonify({"id": new_id})
@@ -603,12 +620,11 @@ def add_advance():
 def delete_advance(aid):
     conn = get_db()
     conn.execute("DELETE FROM advances WHERE id=?", (aid,))
-    conn.commit()
     conn.close()
     return jsonify({"ok": True})
 
 
-# --- client adjustments (discount / round off / bad debt / TDS / other) --
+# --- client adjustments ---------------------------------------------------
 
 @app.route("/api/client-adjustments", methods=["GET"])
 @login_required
@@ -645,7 +661,6 @@ def add_adjustment():
         "INSERT INTO client_adjustments(date, client, adj_type, amount, note, created_by) VALUES (?,?,?,?,?,?)",
         (adj_date, d.get("client").strip(), d.get("adjType").strip(), amount, d.get("note", ""), session["username"]),
     )
-    conn.commit()
     new_id = cur.lastrowid
     conn.close()
     return jsonify({"id": new_id})
@@ -657,7 +672,6 @@ def add_adjustment():
 def delete_adjustment(aid):
     conn = get_db()
     conn.execute("DELETE FROM client_adjustments WHERE id=?", (aid,))
-    conn.commit()
     conn.close()
     return jsonify({"ok": True})
 
@@ -692,13 +706,11 @@ def import_data():
     if data is None:
         return jsonify({"error": "invalid backup format"}), 400
 
-    # Accept: a bare list (very old format), {"entries":[...]} (old format),
-    # or the full {"entries":..., "payments":..., "advances":..., "clientAdjustments":...} (new format).
     if isinstance(data, list):
         entry_rows, payment_rows, advance_rows, adj_rows = data, None, [], []
     else:
         entry_rows = data.get("entries", [])
-        payment_rows = data.get("payments")  # None => old format, synthesize below
+        payment_rows = data.get("payments")
         advance_rows = data.get("advances", [])
         adj_rows = data.get("clientAdjustments", data.get("client_adjustments", []))
 
@@ -711,7 +723,7 @@ def import_data():
     conn.execute("DELETE FROM advances")
     conn.execute("DELETE FROM client_adjustments")
 
-    id_map = {}  # old id -> new id, for entries
+    id_map = {}
     for r in entry_rows:
         try:
             amount = float(r.get("amount", 0))
@@ -743,7 +755,6 @@ def import_data():
             id_map[old_id] = cur.lastrowid
         r["_new_id"] = cur.lastrowid
 
-    # linked_sale_id needs remapping to the new ids, second pass
     for r in entry_rows:
         old_link = r.get("linked_sale_id") or r.get("linkedSaleId")
         if old_link is not None and old_link in id_map:
@@ -753,8 +764,6 @@ def import_data():
             )
 
     if payment_rows is None:
-        # Old-format backup: synthesize one full payment per sale that was
-        # marked received, so the new partial-payment model sees it.
         for r in entry_rows:
             if r.get("kind") == "sale" and r.get("received"):
                 conn.execute(
@@ -806,7 +815,6 @@ def import_data():
             ),
         )
 
-    conn.commit()
     counts = {
         "entries": len(entry_rows),
         "payments": conn.execute("SELECT COUNT(*) c FROM payments").fetchone()["c"],
@@ -829,7 +837,6 @@ def clear_all():
     conn.execute("DELETE FROM entries")
     conn.execute("DELETE FROM advances")
     conn.execute("DELETE FROM client_adjustments")
-    conn.commit()
     conn.close()
     return jsonify({"ok": True})
 
@@ -837,5 +844,4 @@ def clear_all():
 init_db()
 
 if __name__ == "__main__":
-    # threaded=True lets several people use it at once from different devices.
     app.run(host="0.0.0.0", port=5000, threaded=True)

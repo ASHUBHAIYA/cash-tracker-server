@@ -1,2 +1,5 @@
 Flask>=3.0
 waitress>=3.0
+werkzeug
+libsql-client
+gunicorn
