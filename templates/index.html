@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales & Expense Tracker</title>
+<style>
+:root{
+  --bg:#f4f5f7; --card:#ffffff; --text:#1a1d23; --muted:#6b7280;
+  --border:#e5e7eb; --accent:#2563eb; --green:#16a34a; --red:#dc2626; --amber:#d97706; --purple:#7c3aed;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111318; --card:#1b1e26; --text:#f0f1f3; --muted:#9aa1ac;
+    --border:#2b2f3a; --accent:#5b9dff; --green:#4ade80; --red:#f87171; --amber:#fbbf24; --purple:#a78bfa;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111318; --card:#1b1e26; --text:#f0f1f3; --muted:#9aa1ac;
+  --border:#2b2f3a; --accent:#5b9dff; --green:#4ade80; --red:#f87171; --amber:#fbbf24; --purple:#a78bfa;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:640px;margin:0 auto;}
+h1{font-size:18px;margin:0;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+input,select{width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;}
+button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:600;}
+.btn-add{width:100%;background:var(--accent);color:#fff;margin-top:10px;}
+.field{margin-top:10px;}
+.kind-toggle{display:flex;gap:6px;margin-bottom:12px;}
+.kind-btn{flex:1;padding:9px 4px;text-align:center;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;}
+.kind-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.paid-toggle{display:flex;gap:8px;flex-wrap:wrap;}
+.paid-btn{flex:1;min-width:80px;padding:9px;text-align:center;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;}
+.paid-btn.active-yes{background:var(--green);color:#fff;border-color:var(--green);}
+.paid-btn.active-no{background:var(--amber);color:#fff;border-color:var(--amber);}
+.paid-btn.active-adv{background:var(--purple);color:#fff;border-color:var(--purple);}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;}
+.tab{padding:7px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border);color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer;}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.stat:last-child{border-bottom:none;}
+.stat .v{font-weight:700;}
+.pending .v{color:var(--amber);}
+.cash .v{color:var(--green);}
+.bank .v{color:var(--accent);}
+.exp .v{color:var(--red);}
+.entry{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px;}
+.entry:last-child{border-bottom:none;}
+.entry .meta{color:var(--muted);font-size:11px;}
+.badge{font-size:10px;padding:2px 6px;border-radius:6px;background:var(--bg);margin-left:4px;}
+.badge-pending{color:var(--amber);}
+.badge-partial{color:var(--accent);}
+.badge-paid{color:var(--green);}
+.badge-advance{color:var(--purple);}
+.amt-in{color:var(--green);font-weight:700;}
+.amt-out{color:var(--red);font-weight:700;}
+.del{background:none;color:var(--muted);font-size:16px;padding:2px 6px;}
+.mini-btn{padding:5px 8px;font-size:11px;color:#fff;}
+.empty{color:var(--muted);text-align:center;padding:14px;font-size:13px;}
+.suggest-box{position:absolute;left:0;right:0;top:100%;margin-top:2px;background:var(--card);border:1px solid var(--border);border-radius:8px;max-height:160px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,0.12);display:none;}
+.suggest-item{padding:8px 10px;font-size:13px;cursor:pointer;}
+.suggest-item:hover, .suggest-item.hi{background:var(--bg);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;overflow-y:auto;}
+.modal-box{background:var(--card);border-radius:12px;padding:16px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto;margin:auto;}
+.modal-box h3{margin:0 0 10px;font-size:15px;}
+.modal-actions{display:flex;gap:8px;margin-top:12px;}
+.modal-actions button{flex:1;}
+.table-wrap{overflow-x:auto;margin:8px 0 16px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th,td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+th{color:var(--muted);font-weight:600;background:var(--bg);}
+tr:last-child td{border-bottom:none;}
+.bal-card{border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;}
+.bal-card .lbl{font-size:11px;color:var(--muted);}
+.bal-card .amt{font-size:16px;font-weight:700;margin-top:2px;}
+.icon-btn{background:var(--card);border:1px solid var(--border);border-radius:8px;width:38px;height:38px;font-size:17px;display:flex;align-items:center;justify-content:center;padding:0;}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;}
+.letterhead{text-align:center;padding:10px 8px 12px;border-bottom:2px solid var(--accent);margin-bottom:14px;}
+.letterhead .cname{font-size:17px;font-weight:800;letter-spacing:0.5px;}
+.letterhead .caddr{font-size:11px;color:var(--muted);margin-top:2px;}
+.letterhead .cgst{font-size:11px;color:var(--muted);margin-top:1px;}
+.checkbox-row{display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px;}
+.link-btn{background:none;color:var(--accent);font-size:12px;padding:4px 0;text-align:left;font-weight:600;}
+body.is-operator .admin-only{display:none !important;}
+
+@media (min-width: 700px){
+  body{ max-width: 780px; padding: 28px 24px; }
+  h1{ font-size: 22px; }
+  .card{ padding: 20px; }
+  input, select, button{ font-size: 15px; }
+  .kind-btn, .paid-btn, .tab{ font-size: 14px; }
+  table{ font-size: 13px; }
+  th, td{ padding: 8px 10px; }
+}
+@media (min-width: 1080px){
+  body{ max-width: 1040px; }
+  .grid3{ grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 480px){
+  button, .kind-btn, .paid-btn, .tab, input, select{ min-height: 40px; }
+  .mini-btn, .del{ min-height: 32px; }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="modal-overlay" id="loginOverlay" style="display:flex;">
+  <div class="modal-box">
+    <div class="letterhead" style="border:none;margin-bottom:10px;padding-bottom:0;">
+      <div class="cname">SHREE BALAJI ASSOCIATES</div>
+    </div>
+    <h3>🔒 Sign in</h3>
+    <div class="field"><label>User ID</label><input type="text" id="loginUser" autocomplete="off" placeholder="admin or user"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPass" placeholder="••••••"></div>
+    <div id="loginError" style="color:var(--red);font-size:12px;margin-top:6px;display:none;">Invalid User ID or password.</div>
+    <button class="btn-add" style="margin-top:10px;" onclick="attemptLogin()">Sign In</button>
+  </div>
+</div>
+
+<div id="appContent" style="display:none;">
+
+<div class="letterhead">
+  <div class="cname">SHREE BALAJI ASSOCIATES</div>
+  <div class="caddr">Near Om Sai Biofuels Bargawan Odgadi Distt. Singrauli</div>
+  <div class="cgst">GSTIN/UIN: 23AEPFS7841N1Z9</div>
+</div>
+
+<div class="topbar">
+  <h1>💰 Sales &amp; Expense Tracker</h1>
+  <div style="display:flex;gap:6px;align-items:center;">
+    <button class="icon-btn admin-only" title="Backup & Restore" onclick="openDataModal()">🗄️</button>
+    <button class="icon-btn admin-only" title="Reports" onclick="openReportModal()">📄</button>
+  </div>
+</div>
+<div style="font-size:12px;color:var(--muted);text-align:right;margin-bottom:14px;">
+  <span id="whoAmI"></span> ·
+  <span style="color:var(--accent);cursor:pointer;" onclick="logout()">Log out</span>
+</div>
+
+<div class="card">
+  <div class="kind-toggle">
+    <div class="kind-btn active" id="kindSale" onclick="setKind('sale')">Sale</div>
+    <div class="kind-btn" id="kindExpense" onclick="setKind('expense')">Expense</div>
+    <div class="kind-btn" id="kindAdvance" onclick="setKind('advance')">Advance</div>
+  </div>
+
+  <div class="field"><label>Date</label><input type="date" id="date"></div>
+
+  <div id="clientField" class="field" style="position:relative;">
+    <label>Client / Party</label>
+    <input type="text" id="client" placeholder="e.g. Ramesh" autocomplete="off" oninput="onClientInput()" onfocus="onClientInput()" onblur="setTimeout(hideClientSuggestions,150)">
+    <div id="clientSuggestions" class="suggest-box"></div>
+  </div>
+
+  <div id="itemField" class="field" style="position:relative;">
+    <label>Item Type</label>
+    <input type="text" id="itemType" placeholder="e.g. 9 inch brick" autocomplete="off" oninput="onItemInput()" onfocus="onItemInput()" onblur="setTimeout(hideItemSuggestions,150)">
+    <div id="itemSuggestions" class="suggest-box"></div>
+  </div>
+
+  <div id="qtyRateField" class="grid2 field">
+    <div><label>Quantity</label><input type="number" id="qty" placeholder="0" step="1" oninput="recalcAmount()"></div>
+    <div><label>Rate (per unit)</label><input type="number" id="rate" placeholder="0.00" step="0.01" oninput="recalcAmount()"></div>
+  </div>
+
+  <div id="computedAmountField" class="field">
+    <label>Bill Amount</label>
+    <input type="text" id="computedAmount" value="0.00" disabled style="font-weight:700;">
+  </div>
+
+  <div id="expenseTypeField" class="field" style="position:relative;">
+    <label>Expense Type</label>
+    <input type="text" id="expenseType" placeholder="e.g. Diesel, Labour, Maintenance" autocomplete="off" oninput="onExpenseInput()" onfocus="onExpenseInput()" onblur="setTimeout(hideExpenseSuggestions,150)">
+    <div id="expenseSuggestions" class="suggest-box"></div>
+  </div>
+
+  <div id="amountField" class="field"><label>Amount</label><input type="number" id="amount" placeholder="0.00" step="0.01"></div>
+
+  <div id="paidField" class="field">
+    <label>Paid?</label>
+    <div class="paid-toggle">
+      <div class="paid-btn" id="paidYes" onclick="setPaid(true)">Yes, received</div>
+      <div class="paid-btn" id="paidNo" onclick="setPaid(false)">No, pending</div>
+    </div>
+  </div>
+
+  <div id="methodField" class="field">
+    <label id="methodLabel">Received via</label>
+    <div class="paid-toggle">
+      <div class="paid-btn" id="methodCash" onclick="setMethod('cash')">💵 Cash</div>
+      <div class="paid-btn" id="methodBank" onclick="setMethod('bank')">🏦 Bank</div>
+      <div class="paid-btn" id="methodAdvance" onclick="setMethod('advance')" style="display:none;">🪙 Advance</div>
+    </div>
+    <div id="advanceBalanceHint" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
+  </div>
+
+  <div id="loadingField" class="field" style="display:none;">
+    <div class="checkbox-row">
+      <input type="checkbox" id="loadingToggle" onchange="toggleLoadingFields()">
+      <label for="loadingToggle" style="margin:0;">Also paid loading/unloading expense?</label>
+    </div>
+    <div id="loadingInputs" class="grid2" style="display:none;margin-top:8px;">
+      <div><label>Amount</label><input type="number" id="loadingAmount" placeholder="0.00" step="0.01"></div>
+      <div><label>Paid via</label>
+        <select id="loadingMethod">
+          <option value="cash">Cash</option>
+          <option value="bank">Bank</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="field"><label>Note (optional)</label><input type="text" id="note" placeholder="e.g. Invoice #102"></div>
+
+  <button class="btn-add" onclick="submitEntry()">Add Entry</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" id="tabDashboard" onclick="switchTab('dashboard')">Dashboard</div>
+  <div class="tab" id="tabAll" onclick="switchTab('all')">All Entries</div>
+  <div class="tab" id="tabLedger" onclick="switchTab('ledger')">Client Ledger</div>
+  <div class="tab" id="tabPending" onclick="switchTab('pending')">Pending</div>
+</div>
+
+<div class="card" id="viewDashboard">
+  <div class="grid2" style="margin-bottom:6px;">
+    <div class="bal-card"><div class="lbl">Opening Cash</div><div class="amt" id="openCash">0</div></div>
+    <div class="bal-card"><div class="lbl">Closing Cash</div><div class="amt" id="closeCash">0</div></div>
+  </div>
+  <div style="margin-top:12px;">
+    <div class="stat"><span>Cash Sales Received</span><span class="v cash" id="sCashSale">0</span></div>
+    <div class="stat"><span>Bank Sales Received</span><span class="v bank" id="sBankSale">0</span></div>
+    <div class="stat"><span>Advance Received (Cash)</span><span class="v cash" id="sAdvCash">0</span></div>
+    <div class="stat"><span>Advance Received (Bank)</span><span class="v bank" id="sAdvBank">0</span></div>
+    <div class="stat"><span>Cash Expenses</span><span class="v exp" id="sCashExp">0</span></div>
+    <div class="stat"><span>Bank Expenses</span><span class="v exp" id="sBankExp">0</span></div>
+    <div class="stat pending"><span><b>Pending (not yet collected)</b></span><span class="v" id="sPending">0</span></div>
+  </div>
+
+  <b style="font-size:14px;">Sales</b>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Client</th><th>Item</th><th>Qty</th><th>Rate</th><th>Status</th><th style="text-align:right;">Amount</th></tr></thead>
+      <tbody id="salesTableBody"></tbody>
+    </table>
+  </div>
+
+  <b style="font-size:14px;">Expenses</b>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Type</th><th>Method</th><th>Note</th><th style="text-align:right;">Amount</th></tr></thead>
+      <tbody id="expTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="viewAll" style="display:none;">
+  <b style="font-size:14px;">Recent Entries</b>
+  <div id="list" style="margin-top:8px;"></div>
+</div>
+
+<div class="card" id="viewLedger" style="display:none;">
+  <b style="font-size:14px;" id="ledgerTitle">Client Ledger</b>
+  <input type="text" id="clientSearch" placeholder="Search client..." oninput="renderLedger()" style="margin-top:8px;">
+  <div id="ledger" style="margin-top:8px;"></div>
+</div>
+
+<div class="card" id="viewPending" style="display:none;">
+  <div class="stat pending"><span><b>Total Pending (net of adjustments)</b></span><span class="v" id="pendingGrandTotal">0</span></div>
+  <div id="pendingList" style="margin-top:10px;"></div>
+</div>
+
+</div>
+
+<div class="modal-overlay" id="payModal">
+  <div class="modal-box">
+    <h3 id="payModalTitle">Record Payment</h3>
+    <div id="payModalBillInfo" style="font-size:12px;color:var(--muted);margin-bottom:6px;"></div>
+    <div class="field"><label>Amount received</label><input type="number" id="payAmount" step="0.01"></div>
+    <div class="field"><label>Date received</label><input type="date" id="payDate"></div>
+    <div class="field">
+      <label>Received via</label>
+      <div class="paid-toggle">
+        <div class="paid-btn" id="payMethodCash" onclick="setPayMethod('cash')">💵 Cash</div>
+        <div class="paid-btn" id="payMethodBank" onclick="setPayMethod('bank')">🏦 Bank</div>
+        <div class="paid-btn" id="payMethodAdvance" onclick="setPayMethod('advance')">🪙 Advance</div>
+      </div>
+      <div id="payAdvanceHint" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+    </div>
+    <div class="field">
+      <div class="checkbox-row">
+        <input type="checkbox" id="payLoadingToggle" onchange="togglePayLoadingFields()">
+        <label for="payLoadingToggle" style="margin:0;">Also paid loading/unloading expense?</label>
+      </div>
+      <div id="payLoadingInputs" class="grid2" style="display:none;margin-top:8px;">
+        <div><label>Amount</label><input type="number" id="payLoadingAmount" step="0.01"></div>
+        <div><label>Paid via</label>
+          <select id="payLoadingMethod"><option value="cash">Cash</option><option value="bank">Bank</option></select>
+        </div>
+      </div>
+    </div>
+    <button class="btn-add" onclick="confirmPay()">Save Payment</button>
+    <button style="width:100%;margin-top:8px;background:var(--bg);color:var(--muted);" onclick="closePayModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="adjModal">
+  <div class="modal-box">
+    <h3>Add Client Adjustment</h3>
+    <div id="adjModalClient" style="font-size:12px;color:var(--muted);margin-bottom:6px;"></div>
+    <div class="field" style="position:relative;">
+      <label>Type</label>
+      <input type="text" id="adjType" placeholder="Discount, Round Off, Bad Debt, TDS..." autocomplete="off" oninput="onAdjTypeInput()" onfocus="onAdjTypeInput()" onblur="setTimeout(hideAdjSuggestions,150)">
+      <div id="adjSuggestions" class="suggest-box"></div>
+    </div>
+    <div class="field"><label>Amount</label><input type="number" id="adjAmount" step="0.01"></div>
+    <div class="field"><label>Date</label><input type="date" id="adjDate"></div>
+    <div class="field"><label>Note (optional)</label><input type="text" id="adjNote"></div>
+    <button class="btn-add" onclick="confirmAdjustment()">Save Adjustment</button>
+    <button style="width:100%;margin-top:8px;background:var(--bg);color:var(--muted);" onclick="closeAdjModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dataModal">
+  <div class="modal-box">
+    <h3>🗄️ Backup & Restore</h3>
+    <div class="grid2">
+      <button style="background:var(--accent);color:#fff;" onclick="backupData()">⬇️ Backup</button>
+      <label style="background:var(--amber);color:#fff;text-align:center;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;">
+        ⬆️ Restore
+        <input type="file" accept="application/json,.json" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;" onchange="restoreData(event)">
+      </label>
+    </div>
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px;">
+      <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:6px;">Danger zone</div>
+      <div class="field"><label>Type DELETE to confirm clearing all data</label><input type="text" id="clearConfirmText" placeholder="DELETE"></div>
+      <button style="width:100%;margin-top:8px;background:var(--red);color:#fff;" onclick="clearAllData()">🗑️ Clear All Data</button>
+    </div>
+    <button style="width:100%;margin-top:14px;background:var(--bg);color:var(--muted);" onclick="closeDataModal()">Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box">
+    <h3>📄 Reports</h3>
+    <div class="grid2">
+      <div><label>From</label><input type="date" id="fromDate"></div>
+      <div><label>To</label><input type="date" id="toDate"></div>
+    </div>
+    <div class="grid2" style="margin-top:10px;">
+      <button style="background:var(--green);color:#fff;" onclick="downloadReport()">📕 PDF</button>
+      <button style="background:var(--accent);color:#fff;" onclick="downloadExcel()">📗 Excel</button>
+    </div>
+    <button style="width:100%;margin-top:14px;background:var(--bg);color:var(--muted);" onclick="closeReportModal()">Close</button>
+  </div>
+</div>
+
+<script>
+/* ============================= STATE ============================= */
+let entries = [];      // sales & expenses
+let payments = [];     // money received against sale entries
+let advances = [];     // client advances
+let adjustments = [];  // discount / round off / bad debt / tds / custom
+
+let kind = 'sale';        // 'sale' | 'expense' | 'advance'
+let paidChoice = true;    // for sale: true = paid now
+let method = null;        // 'cash' | 'bank' | 'advance'
+let currentUser = null;
+let pollTimer = null;
+let currentTab = 'dashboard';
+let openClient = null;
+let payModalEntryId = null;
+let payMethod = null;
+let adjModalClient = null;
+
+/* ============================= PURE HELPERS (no DOM) ============================= */
+function fmt(n){ n = Number(n)||0; return n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function addDays(dateStr, n){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function isAdmin(){ return currentUser && currentUser.role === 'admin'; }
+
+function paymentsFor(entryId){ return payments.filter(p=>p.entryId===entryId); }
+function paidAmount(entryId){ return paymentsFor(entryId).reduce((a,p)=>a+p.amount,0); }
+function saleBalance(entry){ return Math.round((entry.amount - paidAmount(entry.id))*100)/100; }
+function saleStatus(entry){
+  const bal = saleBalance(entry);
+  const paid = paidAmount(entry.id);
+  if(bal <= 0.005) return 'paid';
+  if(paid > 0.005) return 'partial';
+  return 'pending';
+}
+function lastPaymentDate(entryId){
+  const ps = paymentsFor(entryId);
+  if(ps.length===0) return null;
+  return ps.reduce((latest,p)=> (p.date > latest ? p.date : latest), ps[0].date);
+}
+function clientAdvanceReceived(clientName){
+  return advances.filter(a=>a.client===clientName).reduce((s,a)=>s+a.amount,0);
+}
+function clientAdvanceUsed(clientName){
+  const saleIds = new Set(entries.filter(e=>e.kind==='sale' && e.client===clientName).map(e=>e.id));
+  return payments.filter(p=>p.method==='advance' && saleIds.has(p.entryId)).reduce((s,p)=>s+p.amount,0);
+}
+function clientAdvanceBalance(clientName){
+  return Math.round((clientAdvanceReceived(clientName) - clientAdvanceUsed(clientName))*100)/100;
+}
+function clientAdjustmentTotal(clientName){
+  return adjustments.filter(a=>a.client===clientName).reduce((s,a)=>s+a.amount,0);
+}
+function clientGrossPending(clientName){
+  return entries.filter(e=>e.kind==='sale' && e.client===clientName)
+    .reduce((s,e)=> s + Math.max(0, saleBalance(e)), 0);
+}
+function clientNetPending(clientName){
+  return Math.round((clientGrossPending(clientName) - clientAdjustmentTotal(clientName))*100)/100;
+}
+function allClientsWithActivity(){
+  const names = new Set();
+  entries.forEach(e=>{ if(e.kind==='sale' && e.client) names.add(e.client); });
+  advances.forEach(a=>names.add(a.client));
+  adjustments.forEach(a=>names.add(a.client));
+  return [...names];
+}
+function totalPendingAllClients(){
+  return allClientsWithActivity().reduce((s,c)=> s + Math.max(0, clientNetPending(c)), 0);
+}
+
+/* Money-movement based totals for a date range (used by Dashboard + Reports) */
+function computeRangeTotals(fromStr, toStr){
+  const inRange = d => d >= fromStr && d <= toStr;
+  const salePayments = payments.filter(p=>inRange(p.date));
+  const cashSale = salePayments.filter(p=>p.method==='cash').reduce((s,p)=>s+p.amount,0);
+  const bankSale = salePayments.filter(p=>p.method==='bank').reduce((s,p)=>s+p.amount,0);
+  const advInRange = advances.filter(a=>inRange(a.date));
+  const advCash = advInRange.filter(a=>a.method==='cash').reduce((s,a)=>s+a.amount,0);
+  const advBank = advInRange.filter(a=>a.method==='bank').reduce((s,a)=>s+a.amount,0);
+  const expInRange = entries.filter(e=>e.kind==='expense' && inRange(e.date));
+  const cashExp = expInRange.filter(e=>e.method==='cash').reduce((s,e)=>s+e.amount,0);
+  const bankExp = expInRange.filter(e=>e.method==='bank').reduce((s,e)=>s+e.amount,0);
+  const salesInRange = entries.filter(e=>e.kind==='sale' && inRange(e.date));
+  return { cashSale, bankSale, advCash, advBank, cashExp, bankExp, expInRange, salesInRange, salePayments };
+}
+function computeOpeningCash(fromStr){
+  const cashIn = payments.filter(p=>p.method==='cash' && p.date < fromStr).reduce((s,p)=>s+p.amount,0)
+    + advances.filter(a=>a.method==='cash' && a.date < fromStr).reduce((s,a)=>s+a.amount,0);
+  const cashOut = entries.filter(e=>e.kind==='expense' && e.method==='cash' && e.date < fromStr).reduce((s,e)=>s+e.amount,0);
+  return Math.round((cashIn - cashOut)*100)/100;
+}
+
+/* ============================= AUTH ============================= */
+async function attemptLogin(){
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  try{
+    const res = await fetch('/api/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    if(!res.ok){ document.getElementById('loginError').style.display = 'block'; return; }
+    currentUser = await res.json();
+    enterApp();
+  }catch(err){ alert('Could not reach the server. Is it running?'); }
+}
+
+async function logout(){
+  try{ await fetch('/api/logout', {method:'POST'}); }catch(e){}
+  currentUser = null;
+  if(pollTimer) clearInterval(pollTimer);
+  document.getElementById('appContent').style.display = 'none';
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+function applyDateBounds(){
+  const today = todayStr();
+  const ids = ['date','payDate','adjDate','fromDate','toDate'];
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(isAdmin()){
+      el.removeAttribute('min'); el.removeAttribute('max');
+    } else if(id === 'fromDate' || id === 'toDate'){
+      el.removeAttribute('min'); el.removeAttribute('max'); // report range: operators can still report on anything
+    } else {
+      el.min = addDays(today, -1);
+      el.max = today;
+    }
+  });
+}
+
+function enterApp(){
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appContent').style.display = 'block';
+  document.getElementById('whoAmI').textContent = currentUser.label + ' (' + currentUser.username + ')';
+  document.body.classList.toggle('is-operator', !isAdmin());
+  document.getElementById('date').value = todayStr();
+  document.getElementById('fromDate').value = todayStr();
+  document.getElementById('toDate').value = todayStr();
+  applyDateBounds();
+  setKind('sale');
+  load();
+  loadTypeOptions();
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(load, 15000);
+}
+
+(async function tryAutoLogin(){
+  try{
+    const res = await fetch('/api/me');
+    if(res.ok){ currentUser = await res.json(); enterApp(); }
+  }catch(e){}
+})();
+
+/* ============================= DATA LOADING ============================= */
+async function load(){
+  try{
+    const [eRes, pRes, aRes, jRes] = await Promise.all([
+      fetch('/api/entries'), fetch('/api/payments'), fetch('/api/advances'), fetch('/api/client-adjustments')
+    ]);
+    if(eRes.status === 401){ logout(); return; }
+    const eRows = await eRes.json();
+    const pRows = await pRes.json();
+    const aRows = await aRes.json();
+    const jRows = await jRes.json();
+
+    entries = eRows.map(r => ({
+      id: r.id, date: r.date, kind: r.kind, client: r.client || '',
+      itemType: r.item_type || '', qty: r.qty, rate: r.rate,
+      expenseType: r.expense_type || '', amount: r.amount, note: r.note || '',
+      method: r.method, linkedSaleId: r.linked_sale_id, createdBy: r.created_by
+    }));
+    payments = pRows.map(r => ({
+      id: r.id, entryId: r.entry_id, date: r.date, method: r.method,
+      amount: r.amount, loadingUnloading: r.loading_unloading
+    }));
+    advances = aRows.map(r => ({
+      id: r.id, date: r.date, client: r.client, amount: r.amount, method: r.method, note: r.note || ''
+    }));
+    adjustments = jRows.map(r => ({
+      id: r.id, date: r.date, client: r.client, adjType: r.adj_type, amount: r.amount, note: r.note || ''
+    }));
+  }catch(e){ console.error('load failed', e); }
+  renderCurrentTab();
+}
+
+let itemTypesCache = [];
+let expenseTypesCache = [];
+let adjTypesCache = ['Discount','Round Off','Bad Debt','TDS'];
+let clientsCache = [];
+
+async function loadTypeOptions(){
+  try{
+    const [itemRes, expRes, adjRes, cliRes] = await Promise.all([
+      fetch('/api/item-types'), fetch('/api/expense-types'),
+      fetch('/api/adjustment-types'), fetch('/api/clients')
+    ]);
+    if(itemRes.ok) itemTypesCache = await itemRes.json();
+    if(expRes.ok) expenseTypesCache = await expRes.json();
+    if(adjRes.ok) adjTypesCache = await adjRes.json();
+    if(cliRes.ok) clientsCache = await cliRes.json();
+  }catch(e){ /* autocomplete falls back to loaded entries */ }
+}
+
+/* ============================= ENTRY FORM: KIND / PAID / METHOD ============================= */
+function setKind(k){
+  kind = k;
+  document.getElementById('kindSale').classList.toggle('active', k==='sale');
+  document.getElementById('kindExpense').classList.toggle('active', k==='expense');
+  document.getElementById('kindAdvance').classList.toggle('active', k==='advance');
+
+  document.getElementById('clientField').style.display = (k==='sale'||k==='advance') ? 'block' : 'none';
+  document.getElementById('itemField').style.display = k==='sale' ? 'block' : 'none';
+  document.getElementById('qtyRateField').style.display = k==='sale' ? 'grid' : 'none';
+  document.getElementById('computedAmountField').style.display = k==='sale' ? 'block' : 'none';
+  document.getElementById('expenseTypeField').style.display = k==='expense' ? 'block' : 'none';
+  document.getElementById('amountField').style.display = (k==='expense'||k==='advance') ? 'block' : 'none';
+  document.getElementById('paidField').style.display = k==='sale' ? 'block' : 'none';
+  document.getElementById('methodAdvance').style.display = k==='sale' ? 'inline-flex' : 'none';
+  document.getElementById('loadingField').style.display = (k==='sale') ? 'block' : 'none';
+
+  document.getElementById('qty').value = '';
+  document.getElementById('rate').value = '';
+  document.getElementById('itemType').value = '';
+  document.getElementById('expenseType').value = '';
+  document.getElementById('amount').value = '';
+  document.getElementById('loadingToggle').checked = false;
+  document.getElementById('loadingInputs').style.display = 'none';
+  recalcAmount();
+
+  method = null;
+  document.getElementById('methodCash').classList.remove('active-yes');
+  document.getElementById('methodBank').classList.remove('active-yes');
+  document.getElementById('methodAdvance').classList.remove('active-adv');
+  document.getElementById('advanceBalanceHint').style.display = 'none';
+
+  if(k==='expense' || k==='advance'){
+    document.getElementById('methodLabel').textContent = k==='advance' ? 'Received via' : 'Paid via';
+    document.getElementById('methodField').style.display = 'block';
+    paidChoice = true;
+  } else {
+    setPaid(true);
+  }
+}
+
+function setPaid(val){
+  paidChoice = val;
+  document.getElementById('paidYes').classList.toggle('active-yes', val===true);
+  document.getElementById('paidNo').classList.toggle('active-no', val===false);
+  document.getElementById('methodLabel').textContent = 'Received via';
+  document.getElementById('methodField').style.display = val ? 'block' : 'none';
+  document.getElementById('loadingField').style.display = (kind==='sale' && val) ? 'block' : 'none';
+  if(!val){
+    method = null;
+    document.getElementById('methodCash').classList.remove('active-yes');
+    document.getElementById('methodBank').classList.remove('active-yes');
+    document.getElementById('methodAdvance').classList.remove('active-adv');
+  }
+}
+
+function setMethod(m){
+  method = m;
+  document.getElementById('methodCash').classList.toggle('active-yes', m==='cash');
+  document.getElementById('methodBank').classList.toggle('active-yes', m==='bank');
+  document.getElementById('methodAdvance').classList.toggle('active-adv', m==='advance');
+  const hint = document.getElementById('advanceBalanceHint');
+  if(m==='advance'){
+    const c = document.getElementById('client').value.trim();
+    const bal = c ? clientAdvanceBalance(c) : 0;
+    hint.textContent = c ? ('Available advance balance for ' + c + ': ' + fmt(bal)) : 'Enter a client first to see their advance balance.';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function toggleLoadingFields(){
+  document.getElementById('loadingInputs').style.display = document.getElementById('loadingToggle').checked ? 'grid' : 'none';
+}
+
+function recalcAmount(){
+  const qty = parseFloat(document.getElementById('qty').value) || 0;
+  const rate = parseFloat(document.getElementById('rate').value) || 0;
+  document.getElementById('computedAmount').value = fmt(qty * rate);
+}
+
+/* ============================= AUTOCOMPLETE (client / item / expense / adjustment type) ============================= */
+function allClientNames(){
+  const fromEntries = entries.filter(e=>e.client).map(e=>e.client);
+  return [...new Set([...clientsCache, ...fromEntries])].sort();
+}
+function onClientInput(){
+  const box = document.getElementById('clientSuggestions');
+  const val = document.getElementById('client').value.trim().toLowerCase();
+  if(method==='advance') setMethod('advance'); // refresh balance hint as client changes
+  if(!val){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches = allClientNames().filter(n => n.toLowerCase().startsWith(val));
+  if(matches.length===0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map(n => `<div class="suggest-item" onmousedown="pickClient('${n.replace(/'/g,"\\'")}')">${n}</div>`).join('');
+  box.style.display = 'block';
+}
+function pickClient(name){ document.getElementById('client').value = name; hideClientSuggestions(); if(method==='advance') setMethod('advance'); }
+function hideClientSuggestions(){ document.getElementById('clientSuggestions').style.display='none'; }
+
+function allItemTypes(){
+  const fromEntries = entries.filter(e=>e.itemType).map(e=>e.itemType);
+  return [...new Set([...itemTypesCache, ...fromEntries])].sort();
+}
+function onItemInput(){
+  const box = document.getElementById('itemSuggestions');
+  const val = document.getElementById('itemType').value.trim().toLowerCase();
+  recalcAmount();
+  if(!val){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches = allItemTypes().filter(n => n.toLowerCase().startsWith(val));
+  if(matches.length===0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map(n => `<div class="suggest-item" onmousedown="pickItem('${n.replace(/'/g,"\\'")}')">${n}</div>`).join('');
+  box.style.display = 'block';
+}
+function pickItem(name){ document.getElementById('itemType').value = name; hideItemSuggestions(); }
+function hideItemSuggestions(){ document.getElementById('itemSuggestions').style.display='none'; }
+
+function allExpenseTypes(){
+  const fromEntries = entries.filter(e=>e.expenseType).map(e=>e.expenseType);
+  return [...new Set([...expenseTypesCache, ...fromEntries])].sort();
+}
+function onExpenseInput(){
+  const box = document.getElementById('expenseSuggestions');
+  const val = document.getElementById('expenseType').value.trim().toLowerCase();
+  if(!val){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches = allExpenseTypes().filter(n => n.toLowerCase().startsWith(val));
+  if(matches.length===0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map(n => `<div class="suggest-item" onmousedown="pickExpense('${n.replace(/'/g,"\\'")}')">${n}</div>`).join('');
+  box.style.display = 'block';
+}
+function pickExpense(name){ document.getElementById('expenseType').value = name; hideExpenseSuggestions(); }
+function hideExpenseSuggestions(){ document.getElementById('expenseSuggestions').style.display='none'; }
+
+function allAdjTypes(){
+  const fromData = adjustments.map(a=>a.adjType);
+  return [...new Set([...adjTypesCache, ...fromData])];
+}
+function onAdjTypeInput(){
+  const box = document.getElementById('adjSuggestions');
+  const val = document.getElementById('adjType').value.trim().toLowerCase();
+  const all = allAdjTypes();
+  const matches = val ? all.filter(n=>n.toLowerCase().startsWith(val)) : all;
+  if(matches.length===0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map(n => `<div class="suggest-item" onmousedown="pickAdjType('${n.replace(/'/g,"\\'")}')">${n}</div>`).join('');
+  box.style.display = 'block';
+}
+function pickAdjType(name){ document.getElementById('adjType').value = name; hideAdjSuggestions(); }
+function hideAdjSuggestions(){ document.getElementById('adjSuggestions').style.display='none'; }
+
+/* ============================= SUBMIT ENTRY (sale / expense / advance) ============================= */
+async function submitEntry(){
+  const entryDate = document.getElementById('date').value || todayStr();
+
+  if(kind === 'advance'){
+    const client = document.getElementById('client').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    if(!client){ alert('Enter a client name'); return; }
+    if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+    if(!method){ alert('Choose cash or bank'); return; }
+    try{
+      const res = await fetch('/api/advances', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ date: entryDate, client, amount, method, note: document.getElementById('note').value.trim() })
+      });
+      if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error ? ('Could not save: '+err.error) : 'Could not save advance.'); return; }
+    }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+    resetEntryForm();
+    await load(); await loadTypeOptions();
+    return;
+  }
+
+  let payload;
+  if(kind==='sale'){
+    const client = document.getElementById('client').value.trim();
+    const itemType = document.getElementById('itemType').value.trim();
+    const qty = parseFloat(document.getElementById('qty').value);
+    const rate = parseFloat(document.getElementById('rate').value);
+    if(!client){ alert('Enter a client name'); return; }
+    if(!itemType){ alert('Enter an item type'); return; }
+    if(!qty || qty<=0){ alert('Enter a valid quantity'); return; }
+    if(!rate || rate<=0){ alert('Enter a valid rate'); return; }
+    if(paidChoice && !method){ alert('Choose cash, bank, or advance'); return; }
+    if(paidChoice && method==='advance'){
+      const bal = clientAdvanceBalance(client);
+      const amt = Math.round(qty*rate*100)/100;
+      if(amt > bal + 0.005){ alert('Insufficient advance balance for ' + client + ' (available: ' + fmt(bal) + ')'); return; }
+    }
+    payload = {
+      date: entryDate, kind, client, itemType, qty, rate,
+      note: document.getElementById('note').value.trim(),
+      received: paidChoice, method: paidChoice ? method : null
+    };
+    if(paidChoice && document.getElementById('loadingToggle').checked){
+      const la = parseFloat(document.getElementById('loadingAmount').value);
+      if(la && la>0){
+        payload.loadingUnloadingAmount = la;
+        payload.loadingUnloadingMethod = document.getElementById('loadingMethod').value;
+      }
+    }
+  } else {
+    const expenseType = document.getElementById('expenseType').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    if(!expenseType){ alert('Enter an expense type'); return; }
+    if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+    if(!method){ alert('Choose cash or bank'); return; }
+    payload = { date: entryDate, kind, expenseType, amount, method, note: document.getElementById('note').value.trim() };
+  }
+
+  try{
+    const res = await fetch('/api/entries', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error ? ('Could not save: '+err.error) : 'Could not save that entry.'); return; }
+  }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+
+  resetEntryForm();
+  await load(); await loadTypeOptions();
+}
+
+function resetEntryForm(){
+  document.getElementById('amount').value = '';
+  document.getElementById('client').value = '';
+  document.getElementById('note').value = '';
+  setKind(kind);
+}
+
+/* ============================= PAYMENT MODAL (partial payments) ============================= */
+function openPayModal(id){
+  payModalEntryId = id;
+  const e = entries.find(x=>x.id===id);
+  const bal = saleBalance(e);
+  document.getElementById('payModalBillInfo').textContent =
+    e.client + ' — ' + (e.itemType||'') + ' — Bill: ' + fmt(e.amount) + ' — Balance due: ' + fmt(bal);
+  document.getElementById('payAmount').value = bal > 0 ? bal.toFixed(2) : e.amount.toFixed(2);
+
+  const dateInput = document.getElementById('payDate');
+  if(isAdmin()){
+    dateInput.removeAttribute('min'); dateInput.removeAttribute('max');
+  } else {
+    const billDate = e.date;
+    const minDate = billDate > addDays(todayStr(),-1) ? billDate : addDays(todayStr(),-1);
+    dateInput.min = minDate; dateInput.max = todayStr();
+  }
+  dateInput.value = todayStr();
+
+  payMethod = null;
+  document.getElementById('payMethodCash').classList.remove('active-yes');
+  document.getElementById('payMethodBank').classList.remove('active-yes');
+  document.getElementById('payMethodAdvance').classList.remove('active-adv');
+  document.getElementById('payLoadingToggle').checked = false;
+  document.getElementById('payLoadingInputs').style.display = 'none';
+  setPayMethod('cash');
+  document.getElementById('payModal').style.display = 'flex';
+}
+function closePayModal(){ payModalEntryId = null; document.getElementById('payModal').style.display='none'; }
+function setPayMethod(m){
+  payMethod = m;
+  document.getElementById('payMethodCash').classList.toggle('active-yes', m==='cash');
+  document.getElementById('payMethodBank').classList.toggle('active-yes', m==='bank');
+  document.getElementById('payMethodAdvance').classList.toggle('active-adv', m==='advance');
+  const hint = document.getElementById('payAdvanceHint');
+  if(m==='advance' && payModalEntryId){
+    const e = entries.find(x=>x.id===payModalEntryId);
+    hint.textContent = 'Available advance balance for ' + e.client + ': ' + fmt(clientAdvanceBalance(e.client));
+  } else { hint.textContent = ''; }
+}
+function togglePayLoadingFields(){
+  document.getElementById('payLoadingInputs').style.display = document.getElementById('payLoadingToggle').checked ? 'grid' : 'none';
+}
+async function confirmPay(){
+  const amount = parseFloat(document.getElementById('payAmount').value);
+  const dateVal = document.getElementById('payDate').value || todayStr();
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+  if(!payMethod){ alert('Choose cash, bank, or advance'); return; }
+  const id = payModalEntryId;
+  const e = entries.find(x=>x.id===id);
+
+  if(!isAdmin()){
+    const minDate = e.date > addDays(todayStr(),-1) ? e.date : addDays(todayStr(),-1);
+    if(dateVal < minDate || dateVal > todayStr()){
+      alert('Payment date must be between ' + minDate + ' and ' + todayStr() + '.');
+      return;
+    }
+  }
+  if(payMethod==='advance'){
+    const bal = clientAdvanceBalance(e.client);
+    if(amount > bal + 0.005){ alert('Insufficient advance balance for ' + e.client + ' (available: ' + fmt(bal) + ')'); return; }
+  }
+
+  const payload = { date: dateVal, method: payMethod, amount };
+  if(document.getElementById('payLoadingToggle').checked){
+    const la = parseFloat(document.getElementById('payLoadingAmount').value);
+    if(la && la>0){
+      payload.loadingUnloadingAmount = la;
+      payload.loadingUnloadingMethod = document.getElementById('payLoadingMethod').value;
+    }
+  }
+
+  try{
+    const res = await fetch('/api/entries/' + id + '/pay', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error ? ('Could not save: '+err.error) : 'Could not record payment.'); return; }
+  }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+
+  closePayModal();
+  await load();
+}
+
+/* ============================= CLIENT ADJUSTMENT MODAL ============================= */
+function openAdjModal(clientName){
+  adjModalClient = clientName;
+  document.getElementById('adjModalClient').textContent = 'For: ' + clientName;
+  document.getElementById('adjType').value = '';
+  document.getElementById('adjAmount').value = '';
+  document.getElementById('adjNote').value = '';
+  const dateInput = document.getElementById('adjDate');
+  if(isAdmin()){ dateInput.removeAttribute('min'); dateInput.removeAttribute('max'); }
+  else { dateInput.min = addDays(todayStr(),-1); dateInput.max = todayStr(); }
+  dateInput.value = todayStr();
+  document.getElementById('adjModal').style.display = 'flex';
+}
+function closeAdjModal(){ adjModalClient = null; document.getElementById('adjModal').style.display='none'; }
+async function confirmAdjustment(){
+  const adjType = document.getElementById('adjType').value.trim();
+  const amount = parseFloat(document.getElementById('adjAmount').value);
+  const adjDate = document.getElementById('adjDate').value || todayStr();
+  if(!adjType){ alert('Enter an adjustment type'); return; }
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+  try{
+    const res = await fetch('/api/client-adjustments', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ date: adjDate, client: adjModalClient, adjType, amount, note: document.getElementById('adjNote').value.trim() })
+    });
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error ? ('Could not save: '+err.error) : 'Could not save adjustment.'); return; }
+  }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+  closeAdjModal();
+  await load(); await loadTypeOptions();
+  if(currentTab==='ledger') renderLedger();
+}
+
+/* ============================= DELETE ACTIONS (admin only) ============================= */
+async function delEntry(id){
+  if(!isAdmin()){ alert('Only an admin can delete entries.'); return; }
+  if(!confirm('Delete this entry? This cannot be undone.')) return;
+  try{
+    const res = await fetch('/api/entries/' + id, { method:'DELETE' });
+    if(!res.ok){ alert('Could not delete that entry.'); return; }
+  }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+  await load();
+}
+async function delAdvance(id){
+  if(!isAdmin()){ alert('Only an admin can delete advances.'); return; }
+  if(!confirm('Delete this advance? This cannot be undone.')) return;
+  try{ await fetch('/api/advances/' + id, { method:'DELETE' }); }catch(e){}
+  await load();
+}
+async function delAdjustment(id){
+  if(!isAdmin()){ alert('Only an admin can delete adjustments.'); return; }
+  if(!confirm('Delete this adjustment? This cannot be undone.')) return;
+  try{ await fetch('/api/client-adjustments/' + id, { method:'DELETE' }); }catch(e){}
+  await load();
+  if(currentTab==='ledger') renderLedger();
+}
+
+/* ============================= TABS / RENDER DISPATCH ============================= */
+function switchTab(tab){
+  currentTab = tab;
+  document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
+  document.getElementById('tabAll').classList.toggle('active', tab==='all');
+  document.getElementById('tabLedger').classList.toggle('active', tab==='ledger');
+  document.getElementById('tabPending').classList.toggle('active', tab==='pending');
+  document.getElementById('viewDashboard').style.display = tab==='dashboard' ? 'block' : 'none';
+  document.getElementById('viewAll').style.display = tab==='all' ? 'block' : 'none';
+  document.getElementById('viewLedger').style.display = tab==='ledger' ? 'block' : 'none';
+  document.getElementById('viewPending').style.display = tab==='pending' ? 'block' : 'none';
+  renderCurrentTab();
+}
+function renderCurrentTab(){
+  if(currentTab==='dashboard') renderDashboard();
+  else if(currentTab==='all') renderAllEntries();
+  else if(currentTab==='ledger') renderLedger();
+  else if(currentTab==='pending') renderPending();
+}
+
+/* ============================= DASHBOARD ============================= */
+function readRange(){
+  const fromStr = document.getElementById('fromDate').value || todayStr();
+  let toStr = document.getElementById('toDate').value || fromStr;
+  if(toStr < fromStr) toStr = fromStr;
+  return { fromStr, toStr };
+}
+function renderDashboard(){
+  const { fromStr, toStr } = readRange();
+  const t = computeRangeTotals(fromStr, toStr);
+  const opening = computeOpeningCash(fromStr);
+  const closing = Math.round((opening + t.cashSale + t.advCash - t.cashExp)*100)/100;
+
+  document.getElementById('openCash').textContent = fmt(opening);
+  document.getElementById('closeCash').textContent = fmt(closing);
+  document.getElementById('sCashSale').textContent = fmt(t.cashSale);
+  document.getElementById('sBankSale').textContent = fmt(t.bankSale);
+  document.getElementById('sAdvCash').textContent = fmt(t.advCash);
+  document.getElementById('sAdvBank').textContent = fmt(t.advBank);
+  document.getElementById('sCashExp').textContent = fmt(t.cashExp);
+  document.getElementById('sBankExp').textContent = fmt(t.bankExp);
+  document.getElementById('sPending').textContent = fmt(totalPendingAllClients());
+
+  const salesBody = document.getElementById('salesTableBody');
+  salesBody.innerHTML = t.salesInRange.length ? t.salesInRange.map(e=>{
+    const status = saleStatus(e);
+    const badge = status==='paid' ? 'Paid' : (status==='partial' ? 'Partial' : 'Pending');
+    return `<tr><td>${e.date}</td><td>${e.client||'-'}</td><td>${e.itemType||'-'}</td><td>${e.qty?fmt(e.qty):'-'}</td><td>${e.rate?fmt(e.rate):'-'}</td><td>${badge}</td><td style="text-align:right;">${fmt(e.amount)}</td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty">No sales in this range</td></tr>`;
+
+  const expBody = document.getElementById('expTableBody');
+  expBody.innerHTML = t.expInRange.length ? t.expInRange.map(e=>{
+    const linkedNote = e.linkedSaleId ? ' (from sale #'+e.linkedSaleId+')' : '';
+    return `<tr><td>${e.date}</td><td>${e.expenseType||'-'}</td><td>${e.method==='cash'?'Cash':'Bank'}</td><td>${(e.note||'-')+linkedNote}</td><td style="text-align:right;">${fmt(e.amount)}</td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="empty">No expenses in this range</td></tr>`;
+}
+
+/* ============================= ALL ENTRIES TAB ============================= */
+function renderAllEntries(){
+  const list = document.getElementById('list');
+  // Combine sales, expenses, advances, and adjustments into one feed, newest first.
+  const rows = [];
+  entries.forEach(e=>{
+    if(e.kind==='sale'){
+      const status = saleStatus(e);
+      const badgeClass = status==='paid'?'badge-paid':(status==='partial'?'badge-partial':'badge-pending');
+      const badgeText = status==='paid'?'PAID':(status==='partial'?'PARTIAL':'PENDING');
+      const itemLine = e.itemType ? `${e.itemType} · ${fmt(e.qty||0)} @ ${fmt(e.rate||0)}` : '';
+      const lastPay = lastPaymentDate(e.id);
+      rows.push({
+        sortKey: e.id, html: `<div class="entry">
+          <div>
+            <div>Sale${e.client?' · '+e.client:''} <span class="badge ${badgeClass}">${badgeText}</span></div>
+            <div class="meta">${e.date}${itemLine?' · '+itemLine:''}${e.note?' · '+e.note:''}${lastPay?' · last payment '+lastPay:''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="amt-in">+${fmt(e.amount)}</span>
+            ${status!=='paid' ? `<button class="mini-btn" style="background:var(--amber);" onclick="openPayModal(${e.id})">Record Payment</button>` : ''}
+            ${isAdmin() ? `<button class="del" onclick="delEntry(${e.id})">✕</button>` : ''}
+          </div>
+        </div>`
+      });
+    } else {
+      const linkedNote = e.linkedSaleId ? ` (loading/unloading for sale #${e.linkedSaleId})` : '';
+      rows.push({
+        sortKey: e.id, html: `<div class="entry">
+          <div>
+            <div>${e.method==='cash'?'Cash Expense':'Bank Expense'}${e.expenseType?' · '+e.expenseType:''}</div>
+            <div class="meta">${e.date}${e.note?' · '+e.note:''}${linkedNote}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="amt-out">-${fmt(e.amount)}</span>
+            ${isAdmin() ? `<button class="del" onclick="delEntry(${e.id})">✕</button>` : ''}
+          </div>
+        </div>`
+      });
+    }
+  });
+  advances.forEach(a=>{
+    rows.push({
+      sortKey: a.id + 0.5, html: `<div class="entry">
+        <div>
+          <div>Advance Received <span class="badge badge-advance">ADVANCE</span> · ${a.client}</div>
+          <div class="meta">${a.date}${a.note?' · '+a.note:''} · via ${a.method}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="amt-in">+${fmt(a.amount)}</span>
+          ${isAdmin() ? `<button class="del" onclick="delAdvance(${a.id})">✕</button>` : ''}
+        </div>
+      </div>`
+    });
+  });
+  adjustments.forEach(a=>{
+    rows.push({
+      sortKey: a.id + 0.7, html: `<div class="entry">
+        <div>
+          <div>Adjustment: ${a.adjType} · ${a.client}</div>
+          <div class="meta">${a.date}${a.note?' · '+a.note:''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="amt-out">-${fmt(a.amount)}</span>
+          ${isAdmin() ? `<button class="del" onclick="delAdjustment(${a.id})">✕</button>` : ''}
+        </div>
+      </div>`
+    });
+  });
+
+  if(rows.length===0){ list.innerHTML = '<div class="empty">No entries yet</div>'; return; }
+  rows.sort((a,b)=>b.sortKey-a.sortKey);
+  list.innerHTML = rows.map(r=>r.html).join('');
+}
+
+/* ============================= CLIENT LEDGER ============================= */
+function renderLedger(){
+  const box = document.getElementById('ledger');
+  const title = document.getElementById('ledgerTitle');
+  const searchBox = document.getElementById('clientSearch');
+
+  if(openClient){
+    searchBox.style.display = 'none';
+    const c = openClient;
+    title.innerHTML = `<span style="cursor:pointer;color:var(--accent);" onclick="backToClients()">← Clients</span> · ${c}`;
+
+    const sales = entries.filter(e=>e.kind==='sale' && e.client===c).sort((a,b)=>b.id-a.id);
+    const advList = advances.filter(a=>a.client===c).sort((a,b)=>b.id-a.id);
+    const adjList = adjustments.filter(a=>a.client===c).sort((a,b)=>b.id-a.id);
+
+    const gross = clientGrossPending(c);
+    const adjTotal = clientAdjustmentTotal(c);
+    const net = clientNetPending(c);
+    const advBal = clientAdvanceBalance(c);
+
+    let html = `
+      <div class="stat"><span>Total Billed</span><span class="v">${fmt(sales.reduce((s,e)=>s+e.amount,0))}</span></div>
+      <div class="stat"><span>Gross Pending (bills)</span><span class="v">${fmt(gross)}</span></div>
+      <div class="stat"><span>Adjustments (discount/TDS/etc.)</span><span class="v">-${fmt(adjTotal)}</span></div>
+      <div class="stat pending"><span><b>Net Pending</b></span><span class="v">${fmt(net)}</span></div>
+      <div class="stat"><span>Advance Balance Available</span><span class="v" style="color:var(--purple);">${fmt(advBal)}</span></div>
+      <div class="grid2" style="margin-top:10px;">
+        <button class="link-btn" style="background:var(--bg);" onclick="openAdjModal('${c.replace(/'/g,"\\'")}')">+ Add Adjustment</button>
+        <button class="link-btn" style="background:var(--bg);" onclick="quickAddAdvance('${c.replace(/'/g,"\\'")}')">+ Add Advance</button>
+      </div>
+      <b style="font-size:13px;display:block;margin-top:14px;">Bills</b>`;
+
+    html += sales.length ? sales.map(e=>{
+      const status = saleStatus(e);
+      const bal = saleBalance(e);
+      const badgeClass = status==='paid'?'badge-paid':(status==='partial'?'badge-partial':'badge-pending');
+      const badgeText = status==='paid'?'PAID':(status==='partial'?'PARTIAL ('+fmt(bal)+' due)':'PENDING');
+      return `<div class="entry">
+        <div><div>${e.itemType||''} · ${fmt(e.qty||0)} @ ${fmt(e.rate||0)} <span class="badge ${badgeClass}">${badgeText}</span></div>
+        <div class="meta">${e.date}${e.note?' · '+e.note:''}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-weight:700;">${fmt(e.amount)}</span>
+          ${status!=='paid' ? `<button class="mini-btn" style="background:var(--amber);" onclick="openPayModal(${e.id})">Pay</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">No bills yet</div>';
+
+    html += `<b style="font-size:13px;display:block;margin-top:14px;">Advances</b>`;
+    html += advList.length ? advList.map(a=>`<div class="entry">
+        <div><div>Advance via ${a.method}</div><div class="meta">${a.date}${a.note?' · '+a.note:''}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="amt-in">+${fmt(a.amount)}</span>
+          ${isAdmin() ? `<button class="del" onclick="delAdvance(${a.id})">✕</button>` : ''}
+        </div>
+      </div>`).join('') : '<div class="empty">No advances</div>';
+
+    html += `<b style="font-size:13px;display:block;margin-top:14px;">Adjustments</b>`;
+    html += adjList.length ? adjList.map(a=>`<div class="entry">
+        <div><div>${a.adjType}</div><div class="meta">${a.date}${a.note?' · '+a.note:''}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="amt-out">-${fmt(a.amount)}</span>
+          ${isAdmin() ? `<button class="del" onclick="delAdjustment(${a.id})">✕</button>` : ''}
+        </div>
+      </div>`).join('') : '<div class="empty">No adjustments</div>';
+
+    box.innerHTML = html;
+    return;
+  }
+
+  searchBox.style.display = 'block';
+  title.textContent = 'Client Ledger';
+  const q = searchBox.value.trim().toLowerCase();
+  let names = allClientsWithActivity();
+  if(q) names = names.filter(n=>n.toLowerCase().includes(q));
+  names.sort();
+  if(names.length===0){ box.innerHTML = `<div class="empty">${q?'No matching clients':'No client activity yet'}</div>`; return; }
+  box.innerHTML = names.map(name=>{
+    const net = clientNetPending(name);
+    const advBal = clientAdvanceBalance(name);
+    return `<div class="entry" style="cursor:pointer;" onclick="openClientView('${name.replace(/'/g,"\\'")}')">
+      <div><b>${name}</b>${advBal>0.005 ? `<div class="meta" style="color:var(--purple);">Advance: ${fmt(advBal)}</div>` : ''}</div>
+      <div style="${net>0.005?'color:var(--amber);font-weight:700;':'color:var(--green);'}">${net>0.005 ? 'Pending '+fmt(net) : 'Settled'}</div>
+    </div>`;
+  }).join('');
+}
+function openClientView(name){ openClient = name; renderLedger(); }
+function backToClients(){ openClient = null; renderLedger(); }
+function quickAddAdvance(clientName){
+  switchTab('all'); // no-op tab switch just to close ledger drill-down visually if needed
+  switchTab('ledger'); openClientView(clientName);
+  setKind('advance');
+  document.getElementById('client').value = clientName;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ============================= PENDING TAB ============================= */
+function renderPending(){
+  const box = document.getElementById('pendingList');
+  document.getElementById('pendingGrandTotal').textContent = fmt(totalPendingAllClients());
+  const names = allClientsWithActivity()
+    .map(n=>({ name:n, net: clientNetPending(n) }))
+    .filter(c=>c.net > 0.005)
+    .sort((a,b)=>b.net-a.net);
+  if(names.length===0){ box.innerHTML = '<div class="empty">No pending amounts 🎉</div>'; return; }
+  box.innerHTML = names.map(c=>`<div class="entry" style="cursor:pointer;" onclick="goToClientLedger('${c.name.replace(/'/g,"\\'")}')">
+    <div><b>${c.name}</b></div>
+    <div style="color:var(--amber);font-weight:700;">${fmt(c.net)}</div>
+  </div>`).join('');
+}
+function goToClientLedger(name){ switchTab('ledger'); openClientView(name); }
+
+/* ============================= BACKUP / RESTORE / CLEAR-ALL ============================= */
+function openDataModal(){ document.getElementById('clearConfirmText').value=''; document.getElementById('dataModal').style.display='flex'; }
+function closeDataModal(){ document.getElementById('dataModal').style.display='none'; }
+
+async function backupData(){
+  try{
+    const res = await fetch('/api/export');
+    if(!res.ok){ alert('Only an admin can back up data.'); return; }
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    await saveOrDownload(blob, 'tracker-backup-' + todayStr() + '.json');
+  }catch(err){ alert('Backup failed: ' + (err&&err.message?err.message:err)); }
+}
+
+function restoreData(event){
+  if(!isAdmin()){ alert('Only an admin can restore a backup.'); event.target.value=''; return; }
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try{
+      let parsed;
+      try{ parsed = JSON.parse(reader.result); }
+      catch(err){ alert('That file is not valid backup JSON.'); event.target.value=''; return; }
+      if(!confirm('This will replace ALL current data on the server with the contents of this backup file. Continue?')){
+        event.target.value=''; return;
+      }
+      const res = await fetch('/api/import', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(parsed)
+      });
+      if(!res.ok){ const err = await res.json().catch(()=>({})); alert('Restore failed: ' + (err.error||'server error')); event.target.value=''; return; }
+      const result = await res.json();
+      await load(); await loadTypeOptions();
+      alert('Restore complete: ' + JSON.stringify(result.counts));
+      event.target.value = '';
+      closeDataModal();
+    }catch(err){
+      alert('Restore failed: ' + (err&&err.message?err.message:err));
+      event.target.value = '';
+    }
+  };
+  reader.onerror = () => { alert('Could not read that file.'); event.target.value=''; };
+  reader.readAsText(file);
+}
+
+async function clearAllData(){
+  const text = document.getElementById('clearConfirmText').value;
+  if(text !== 'DELETE'){ alert('Type DELETE exactly (in capitals) to confirm.'); return; }
+  if(!confirm('This will permanently erase ALL entries, payments, advances, and adjustments. This cannot be undone. Are you absolutely sure?')) return;
+  try{
+    const res = await fetch('/api/clear-all', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({confirm:'DELETE'}) });
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert('Could not clear data: ' + (err.error||'server error')); return; }
+  }catch(err){ alert('Could not reach the server: ' + (err&&err.message?err.message:err)); return; }
+  await load();
+  closeDataModal();
+  alert('All data cleared. You can now restore from a backup if needed.');
+}
+
+/* ============================= REPORTS (PDF / Excel) ============================= */
+function openReportModal(){ document.getElementById('reportModal').style.display='flex'; }
+function closeReportModal(){ document.getElementById('reportModal').style.display='none'; }
+
+function buildReportDataset(fromStr, toStr){
+  const t = computeRangeTotals(fromStr, toStr);
+  const advInRange = advances.filter(a=>a.date>=fromStr && a.date<=toStr);
+  const adjInRange = adjustments.filter(a=>a.date>=fromStr && a.date<=toStr);
+  return { ...t, advInRange, adjInRange, opening: computeOpeningCash(fromStr) };
+}
+
+async function downloadReport(){
+  const { fromStr, toStr } = readRange();
+  const d = buildReportDataset(fromStr, toStr);
+  const closing = Math.round((d.opening + d.cashSale + d.advCash - d.cashExp)*100)/100;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const pw = doc.internal.pageSize.getWidth();
+
+  doc.setFillColor(37,99,235);
+  doc.rect(0,0,pw,36,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(15); doc.setFont(undefined,'bold');
+  doc.text('SHREE BALAJI ASSOCIATES', 14, 14);
+  doc.setFontSize(8); doc.setFont(undefined,'normal');
+  doc.text('Near Om Sai Biofuels Bargawan Odgadi Distt. Singrauli', 14, 20);
+  doc.text('GSTIN/UIN: 23AEPFS7841N1Z9', 14, 25);
+  doc.setFontSize(10); doc.setFont(undefined,'bold');
+  doc.text('Report of Sales and Expenses', 14, 32);
+
+  doc.setTextColor(30,30,30);
+  const fmtDate = s => new Date(s+'T00:00:00').toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+  let y = 44;
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text((fromStr===toStr ? fmtDate(fromStr) : fmtDate(fromStr)+'  to  '+fmtDate(toStr)), 14, y); y += 8;
+
+  doc.setFontSize(12); doc.setFont(undefined,'bold');
+  doc.text('Summary', 14, y); y += 4;
+  doc.autoTable({
+    startY:y, theme:'grid', styles:{fontSize:9,cellPadding:3}, headStyles:{fillColor:[37,99,235]},
+    head:[['Metric','Amount']],
+    body:[
+      ['Cash Sales Received', fmt(d.cashSale)],
+      ['Bank Sales Received', fmt(d.bankSale)],
+      ['Advance Received (Cash)', fmt(d.advCash)],
+      ['Advance Received (Bank)', fmt(d.advBank)],
+      ['Cash Expenses', fmt(d.cashExp)],
+      ['Bank Expenses', fmt(d.bankExp)],
+      ['Opening Cash', fmt(d.opening)],
+      ['Closing Cash', fmt(closing)],
+      [{content:'Total Pending (all clients, net of adjustments)', styles:{textColor:[180,120,0],fontStyle:'bold'}}, {content:fmt(totalPendingAllClients()), styles:{textColor:[180,120,0],fontStyle:'bold'}}],
+    ],
+    columnStyles:{1:{halign:'right'}}
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('Sales (bills raised in period)', 14, y); y+=4;
+  if(d.salesInRange.length){
+    doc.autoTable({
+      startY:y, theme:'striped', styles:{fontSize:8,cellPadding:3}, headStyles:{fillColor:[55,65,81]},
+      head:[['Date','Client','Item','Qty','Rate','Status','Amount']],
+      body:d.salesInRange.map(e=>{
+        const s = saleStatus(e);
+        return [e.date, e.client||'-', e.itemType||'-', e.qty?fmt(e.qty):'-', e.rate?fmt(e.rate):'-', s.toUpperCase(), fmt(e.amount)];
+      }),
+      columnStyles:{6:{halign:'right'}}
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  } else { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(120,120,120); doc.text('No sales in this period.', 14, y+4); doc.setTextColor(30,30,30); y+=12; }
+
+  doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('Payments Received', 14, y); y+=4;
+  if(d.salePayments.length){
+    doc.autoTable({
+      startY:y, theme:'striped', styles:{fontSize:8,cellPadding:3}, headStyles:{fillColor:[55,65,81]},
+      head:[['Date','Client','Method','Amount','Loading/Unloading']],
+      body:d.salePayments.map(p=>{
+        const e = entries.find(x=>x.id===p.entryId);
+        return [p.date, e?e.client:'-', p.method, fmt(p.amount), p.loadingUnloading>0 ? ('Yes — '+fmt(p.loadingUnloading)+' (also recorded as expense)') : '-'];
+      }),
+      columnStyles:{3:{halign:'right'}}
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  } else { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(120,120,120); doc.text('No payments in this period.', 14, y+4); doc.setTextColor(30,30,30); y+=12; }
+
+  if(y > 250){ doc.addPage(); y = 20; }
+  doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('Expenses', 14, y); y+=4;
+  if(d.expInRange.length){
+    doc.autoTable({
+      startY:y, theme:'striped', styles:{fontSize:8,cellPadding:3}, headStyles:{fillColor:[55,65,81]},
+      head:[['Date','Type','Method','Note','Amount']],
+      body:d.expInRange.map(e=>[e.date, e.expenseType||'-', e.method==='cash'?'Cash':'Bank', (e.note||'-')+(e.linkedSaleId?' (from sale #'+e.linkedSaleId+')':''), fmt(e.amount)]),
+      columnStyles:{4:{halign:'right'}}
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  } else { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(120,120,120); doc.text('No expenses in this period.', 14, y+4); doc.setTextColor(30,30,30); y+=12; }
+
+  if(d.advInRange.length || d.adjInRange.length){
+    if(y > 240){ doc.addPage(); y = 20; }
+    doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('Advances', 14, y); y+=4;
+    if(d.advInRange.length){
+      doc.autoTable({
+        startY:y, theme:'striped', styles:{fontSize:8,cellPadding:3}, headStyles:{fillColor:[55,65,81]},
+        head:[['Date','Client','Method','Note','Amount']],
+        body:d.advInRange.map(a=>[a.date, a.client, a.method, a.note||'-', fmt(a.amount)]),
+        columnStyles:{4:{halign:'right'}}
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    } else { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(120,120,120); doc.text('No advances in this period.', 14, y+4); doc.setTextColor(30,30,30); y+=12; }
+
+    if(y > 240){ doc.addPage(); y = 20; }
+    doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('Client Adjustments', 14, y); y+=4;
+    if(d.adjInRange.length){
+      doc.autoTable({
+        startY:y, theme:'striped', styles:{fontSize:8,cellPadding:3}, headStyles:{fillColor:[55,65,81]},
+        head:[['Date','Client','Type','Note','Amount']],
+        body:d.adjInRange.map(a=>[a.date, a.client, a.adjType, a.note||'-', fmt(a.amount)]),
+        columnStyles:{4:{halign:'right'}}
+      });
+    } else { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(120,120,120); doc.text('No adjustments in this period.', 14, y+4); doc.setTextColor(30,30,30); }
+  }
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Generated ' + new Date().toLocaleString(), 14, doc.internal.pageSize.getHeight()-8);
+  }
+
+  const blob = doc.output('blob');
+  await saveOrDownload(blob, 'Business-Report-' + fromStr + (toStr!==fromStr?'_to_'+toStr:'') + '.pdf');
+}
+
+async function downloadExcel(){
+  const { fromStr, toStr } = readRange();
+  const d = buildReportDataset(fromStr, toStr);
+  const closing = Math.round((d.opening + d.cashSale + d.advCash - d.cashExp)*100)/100;
+
+  const summaryRows = [
+    ['SHREE BALAJI ASSOCIATES'],
+    ['Near Om Sai Biofuels Bargawan Odgadi Distt. Singrauli'],
+    ['GSTIN/UIN: 23AEPFS7841N1Z9'],
+    ['Report of Sales and Expenses'],
+    [fromStr===toStr?fromStr:fromStr+' to '+toStr],
+    [],
+    ['Metric','Amount'],
+    ['Cash Sales Received', d.cashSale],
+    ['Bank Sales Received', d.bankSale],
+    ['Advance Received (Cash)', d.advCash],
+    ['Advance Received (Bank)', d.advBank],
+    ['Cash Expenses', d.cashExp],
+    ['Bank Expenses', d.bankExp],
+    ['Opening Cash', d.opening],
+    ['Closing Cash', closing],
+    ['Total Pending (all clients, net of adjustments)', totalPendingAllClients()],
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet['!cols'] = [{wch:36},{wch:16}];
+
+  const salesSheet = XLSX.utils.aoa_to_sheet([
+    ['Date','Client','Item','Qty','Rate','Status','Amount'],
+    ...d.salesInRange.map(e=>[e.date, e.client||'', e.itemType||'', e.qty||'', e.rate||'', saleStatus(e), e.amount])
+  ]);
+  const paymentsSheet = XLSX.utils.aoa_to_sheet([
+    ['Date','Client','Method','Amount','Loading/Unloading'],
+    ...d.salePayments.map(p=>{
+      const e = entries.find(x=>x.id===p.entryId);
+      return [p.date, e?e.client:'', p.method, p.amount, p.loadingUnloading||0];
+    })
+  ]);
+  const expSheet = XLSX.utils.aoa_to_sheet([
+    ['Date','Type','Method','Note','Amount','Linked Sale ID'],
+    ...d.expInRange.map(e=>[e.date, e.expenseType||'', e.method, e.note||'', e.amount, e.linkedSaleId||''])
+  ]);
+  const advSheet = XLSX.utils.aoa_to_sheet([
+    ['Date','Client','Method','Note','Amount'],
+    ...d.advInRange.map(a=>[a.date, a.client, a.method, a.note||'', a.amount])
+  ]);
+  const adjSheet = XLSX.utils.aoa_to_sheet([
+    ['Date','Client','Type','Note','Amount'],
+    ...d.adjInRange.map(a=>[a.date, a.client, a.adjType, a.note||'', a.amount])
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+  XLSX.utils.book_append_sheet(wb, salesSheet, 'Sales');
+  XLSX.utils.book_append_sheet(wb, paymentsSheet, 'Payments');
+  XLSX.utils.book_append_sheet(wb, expSheet, 'Expenses');
+  XLSX.utils.book_append_sheet(wb, advSheet, 'Advances');
+  XLSX.utils.book_append_sheet(wb, adjSheet, 'Adjustments');
+
+  const wbArray = XLSX.write(wb, { type:'array', bookType:'xlsx' });
+  const blob = new Blob([wbArray], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  await saveOrDownload(blob, 'Business-Report-' + fromStr + (toStr!==fromStr?'_to_'+toStr:'') + '.xlsx');
+}
+
+async function saveOrDownload(blob, filename){
+  try{
+    if(typeof claude !== 'undefined' && claude.use){
+      const downloads = await claude.use('downloads');
+      if(downloads){ await downloads.save({ filename, data: blob }); return; }
+    }
+  }catch(err){
+    if(err && err.code === 'declined') return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+[Unit]
+Description=Sales & Expense Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/cash-tracker-server
+Environment=TRACKER_SECRET=change-this-to-something-random
+ExecStart=/home/pi/cash-tracker-server/venv/bin/python /home/pi/cash-tracker-server/serve.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
